@@ -77,6 +77,12 @@ Result SbSNetworkApp::appProcess()
   Result result = OK;
 
   sbs::InputLayer input_layer(28, 28, 2);
+  sbs::InferencePopulation IP(32);
+
+  sbs::Weights * p_matrix = new sbs::Weights(50, 32);
+
+  float * array = IP.data();
+  uint16_t N = IP.size();
 
   return result;
 }
