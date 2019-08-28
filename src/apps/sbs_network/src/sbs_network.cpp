@@ -53,9 +53,9 @@ InferencePopulation::InferencePopulation(uint8_t neurons):
   StateVariable initial_h = 1.0f/(float)neurons;
 
   for (uint8_t neuron = 0; neuron < neurons; neuron ++)
-    H_.push_back(initial_h);
+    push_back(initial_h);
 
-  ASSERT(H_.size() == neurons);
+  ASSERT(size() == neurons);
 }
 
 InferencePopulation::~InferencePopulation ()
@@ -68,9 +68,9 @@ SpikeID InferencePopulation::genSpike(void)
 
   ASSERT(random_s <= 1.0);
 
-  for (SpikeID spikeID = 0; spikeID < H_.size() - 1; spikeID ++)
+  for (SpikeID spikeID = 0; spikeID < size() - 1; spikeID ++)
   {
-    sum += H_[spikeID];
+    sum += at(spikeID);
 
     ASSERT(sum <= 1.0);
 
@@ -78,7 +78,7 @@ SpikeID InferencePopulation::genSpike(void)
       return spikeID;
   }
 
-  return H_.size() - 1;
+  return size() - 1;
 }
 
 
@@ -102,43 +102,20 @@ Layer::Layer (uint8_t rows, uint8_t columns, uint8_t neurons)
 
     ASSERT(IP_row->size() == columns);
 
-    IP_matrix_.push_back(IP_row);
+    push_back(IP_row);
   }
 
-  ASSERT(IP_matrix_.size() == rows);
-
-  // Instantiate P
-  for (uint8_t row = 0; row < rows; row ++)
-  {
-    PopulationRow * IP_row = new PopulationRow();
-
-    ASSERT(IP_row != nullptr);
-
-    for (uint8_t column = 0; column < columns; column ++)
-    {
-        InferencePopulation * IP = new InferencePopulation(neurons);
-
-        ASSERT(IP != nullptr);
-
-        IP_row->push_back(IP);
-    }
-
-    ASSERT(IP_row->size() == columns);
-
-    IP_matrix_.push_back(IP_row);
-  }
-
-  ASSERT(IP_matrix_.size() == rows);
+  ASSERT(size() == rows);
 }
 
 Layer::~Layer ()
 {
   PopulationRow * IP_row = nullptr;
   InferencePopulation * IP = nullptr;
-  for (uint8_t row = 0; row < IP_matrix_.size(); row ++)
+  for (uint8_t row = 0; row < size(); row ++)
   {
-    IP_row = IP_matrix_[row];
-    IP_matrix_[row] = nullptr;
+    IP_row = (*this)[row];
+    (*this)[row] = nullptr;
 
     ASSERT(IP_row != nullptr);
 

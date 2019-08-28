@@ -54,10 +54,16 @@ typedef std::vector<WeightRow *>            WeightMatrix;
 
 // CLASS DECLARATIONS -----------------------------------------------------------
 
+// Instantiate P
+class Weights: public WeightMatrix
+{
+  Weights(uint8_t rows, uint8_t columns);
+  ~Weights();
+};
 
 // SbS Inference population class
 
-class InferencePopulation
+class InferencePopulation: public StateVector
 {
 public:
   InferencePopulation(uint8_t neurons);
@@ -66,22 +72,20 @@ public:
   SpikeID genSpike(void);
 
 private:
-  StateVector  H_;
   std::mt19937 mt_rand;
 };
 
 
 // SbS Layer class
 
-class Layer
+class Layer: public PopulationMatrix
 {
 public:
   Layer(uint8_t rows, uint8_t columns, uint8_t neurons);
   virtual ~Layer();
 
 private:
-  PopulationMatrix  IP_matrix_;
-  WeightMatrix      P_matrix_;
+  WeightMatrix * P_matrix_;
 };
 
 class InputLayer: public Layer
