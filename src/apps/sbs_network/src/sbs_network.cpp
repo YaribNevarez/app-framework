@@ -30,10 +30,19 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include <fstream>
 
 namespace item {
 namespace snn {
 namespace sbs {
+
+  static std::mt19937 mt_rand(666);
+
+  uint32_t random()
+  {
+    return mt_rand();
+  }
+
 // FORWARD DECLARATIONS --------------------------------------------------------
 
 // TYPEDEFS AND DEFINES --------------------------------------------------------
@@ -71,10 +80,18 @@ Weights::~Weights ()
 
 }
 
+bool Weights::load(std::string file_name)
+{
+  std::ifstream file(file_name, std::ios::binary);
+
+  for (uint16_t s = 0; s < size(); s ++)
+  file.read((char*)at(s).data(), sizeof(Weight)*at(s).size());
+
+}
+
 // SbS Inference population class
 
-InferencePopulation::InferencePopulation(uint16_t neurons):
-    mt_rand(rand())
+InferencePopulation::InferencePopulation(uint16_t neurons)
 {
   StateVariable initial_h = 1.0f/(float)neurons;
 
@@ -91,7 +108,7 @@ void InferencePopulation::updateH(WeightRow P, Epsilon e)
 {
   ASSERT (P.size() == size());
   StateVector temp_h_p(P.size());
-  float sum = 0.0;
+  double sum = 0.0;
 
   for (uint16_t i = 0; i < P.size(); i ++)
   {
@@ -99,7 +116,7 @@ void InferencePopulation::updateH(WeightRow P, Epsilon e)
     sum += temp_h_p[i];
   }
 
-  if (sum < 0.000000000000001) // TODO: DEFINE constant
+  if (sum < 1e-30) // TODO: DEFINE constant
     return;
 
   float reverse_e = 1.0 / (1.0 + e);
@@ -109,6 +126,8 @@ void InferencePopulation::updateH(WeightRow P, Epsilon e)
   {
    (*this)[i] = reverse_e*(at(i) + temp_h_p[i] * e_over_sum);
   }
+
+
 }
 
 SpikeID InferencePopulation::genSpike(void)
@@ -122,11 +141,12 @@ SpikeID InferencePopulation::genSpike(void)
   {
     sum += at(spikeID);
 
-    ASSERT(sum <= 1.0);
+    //ASSERT(sum < 1.000001);
 
     if (random_s <= sum)
       return spikeID;
   }
+
 
   return size() - 1;
 }
@@ -190,13 +210,12 @@ void BaseLayer::update(Spikes spikes)
 {
   ASSERT(weights_ != nullptr);
 
-  if (weights_ != nullptr && kernel_size_ != 0)
+  if (weights_ == nullptr || kernel_size_ == 0)
     return;
 
   uint16_t layer_row_size;
   uint16_t layer_column_size;
   SpikeID spikeID = 0;
-  const float EPSILON = 0.1; // TODO: Find a place for Epsilon may change over the process
 
   layer_row_size = size();
   layer_column_size = at(0)->size();
@@ -209,28 +228,45 @@ void BaseLayer::update(Spikes spikes)
     Constant_B = kernel_size_;
   }
 
-
+  uint16_t X = 0;
+  uint16_t Y = 0;
   for (uint16_t kernel_row_pos = 0;
-       kernel_row_pos < layer_row_size - (kernel_size_ - 1);
-       kernel_row_pos += kernel_stride_)
+       kernel_row_pos < spikes.size() - (kernel_size_ - 1);
+       kernel_row_pos += kernel_stride_) {
     for (uint16_t kernel_column_pos = 0;
-         kernel_column_pos < layer_column_size - (kernel_size_ - 1);
-         kernel_column_pos += kernel_stride_)
+         kernel_column_pos < spikes.at(0).size() - (kernel_size_ - 1);
+         kernel_column_pos += kernel_stride_) {
 
-      for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row ++)
-        for (uint16_t kernel_column = 0; kernel_column < kernel_size_; kernel_column ++)
-        {
+        for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row ++)
+            for (uint16_t kernel_column = 0; kernel_column < kernel_size_; kernel_column ++)
+              {
           spikeID = spikes[kernel_row_pos + kernel_row][kernel_column_pos + kernel_column];
 
           WeightRow weightRow = weights_->at(spikeID + (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_);
-
-          (*(*this)[kernel_row_pos])[kernel_column_pos]->updateH(weightRow, EPSILON);
+//          std::cout << kernel_row_pos << " " << kernel_column_pos << " " << kernel_row << " " << kernel_column << " " << kernel_row_pos + kernel_row << " " << kernel_column_pos + kernel_column << " " << (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_ << "\n";
+//          for (uint16_t xxx = 0; xxx < weightRow.size(); xxx++){
+//              std::cout << weightRow.at(xxx) << " ";
+//          }
+//          std::cout << "\n";
+          (*(*this)[Y])[X]->updateH(weightRow, epsilon_);
         }
+          X++;
+    }
+    Y ++;
+    X = 0;
+
+  }
+
 }
 
 void BaseLayer::initialize(void)
 {
   // TODO: Initialize all the H(i) =(1/N)
+}
+
+void BaseLayer::setEpsilon(float epsilon)
+{
+  epsilon_ = epsilon;
 }
 
 BaseLayer::~BaseLayer ()
@@ -269,6 +305,18 @@ InputLayer::~InputLayer ()
 
 }
 
+bool InputLayer::load(std::string file_name)
+{
+  std::ifstream file(file_name, std::ios::binary);
+
+  for (uint16_t x = 0; x < at(0)->size(); x ++)
+  for (uint16_t y = 0; y < size(); y ++)
+  file.read((char*)at(y)->at(x)->data(), sizeof(StateVariable)*at(y)->at(x)->size());
+
+  file.read((char*)&label_, sizeof(label_));
+  label_--;
+
+}
 
 ConvolutionLayer::ConvolutionLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer) :
     BaseLayer (rows, columns, neurons, kernel_size, 1, dir_x, N_PreLayer)
@@ -346,6 +394,23 @@ void OutputLayer::update(Spikes spikes)
   BaseLayer::update(spikes);
 }
 
+uint16_t OutputLayer::getOutput(void)
+{
+  float MaxValue = 0;
+  uint16_t MaxPos = 0;
+
+  for (int16_t i = 0; i < (*(*this)[0])[0]->size(); i ++)
+    {
+
+      if ( (*(*this)[0])[0]->at(i) > MaxValue){
+          MaxPos = i;
+          MaxValue = (*(*this)[0])[0]->at(i);
+
+      }
+  }
+
+  return MaxPos;
+}
 } // namespace sbs
 } // namespace snn
 } // namespace item

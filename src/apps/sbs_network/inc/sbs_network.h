@@ -35,7 +35,6 @@ namespace sbs {
 // FORWARD DECLARATIONS --------------------------------------------------------
 class Neuron;
 class InferencePopulation;
-
 // TYPEDEFS AND DEFINES --------------------------------------------------------
 typedef float                               Epsilon;
 typedef float                               StateVariable;
@@ -56,6 +55,8 @@ typedef std::vector<WeightRow>              WeightMatrix;
 
 // EUNUMERATIONS ---------------------------------------------------------------
 
+uint32_t random();
+
 // CLASS DECLARATIONS -----------------------------------------------------------
 class Spikes: public SpikeIDMatrix
 {
@@ -70,6 +71,8 @@ class Weights: public WeightMatrix
 public:
   Weights(uint16_t rows, uint16_t columns);
   virtual ~Weights();
+
+  bool load(std::string file_name);
 };
 
 // SbS Inference population class
@@ -87,7 +90,7 @@ public:
   virtual void initialize(void); // Initialize all the H(i) =(1/N)
 
 private:
-  std::mt19937 mt_rand;
+
 };
 
 
@@ -105,6 +108,8 @@ public:
 
   virtual void initialize(void); // Initialize all the H(i) =(1/N)
 
+  virtual void setEpsilon(float epsilon);
+
 protected:
   Weights * weights_ = nullptr;
   uint16_t  kernel_size_ = 0;
@@ -112,6 +117,8 @@ protected:
 
   bool dir_x_ = true;
   uint16_t N_PreLayer_ = 0;
+
+  float epsilon_;
 };
 
 class InputLayer: public BaseLayer
@@ -119,6 +126,10 @@ class InputLayer: public BaseLayer
 public:
   InputLayer(uint16_t rows, uint16_t columns, uint16_t neurons);
   virtual ~InputLayer();
+
+  bool load(std::string file_name);
+
+  uint8_t label_ = -1;
 };
 
 class ConvolutionLayer: public BaseLayer
@@ -151,6 +162,7 @@ public:
   OutputLayer(uint16_t neurons, bool dir_x, uint16_t N_PreLayer);
   virtual ~OutputLayer();
   virtual void update(Spikes spikes);
+  virtual uint16_t getOutput(void);
 };
 
 } // namespace sbs

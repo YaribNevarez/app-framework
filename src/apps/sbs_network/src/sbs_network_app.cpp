@@ -35,6 +35,8 @@
 #include <sbs_network_app.h>
 #include <termios.h> /* POSIX terminal control definitions */
 
+#include <fstream>
+
 namespace item {
 namespace snn {
 namespace apps {
@@ -81,29 +83,55 @@ Result SbSNetworkApp::appProcess()
   // Instantiate SBS Network objects
   sbs::InputLayer       input_layer(24, 24, 50);
 
+  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_2.bin");
+
   sbs::Weights          P_IN_H1(2*5*5, 32);
+
+  P_IN_H1.load("/home/nevarez/Downloads/MNIST/W_X_H1_Iter0.bin");
 
   sbs::ConvolutionLayer H1(24, 24, 32, 1, 1, 0);
 
+  H1.setEpsilon(0.1);
+
   sbs::Weights          P_H1_H2(32*2*2, 32);
+
+  P_H1_H2.load("/home/nevarez/Downloads/MNIST/W_H1_H2.bin");
 
   sbs::PoolingLayer     H2(12, 12, 32, 2, false, 32);
 
+  H2.setEpsilon(0.1/4.0);
+
   sbs::Weights          P_H2_H3(32*5*5, 64);
+
+  P_H2_H3.load("/home/nevarez/Downloads/MNIST/W_H2_H3_Iter0.bin");
 
   sbs::ConvolutionLayer H3(8, 8, 64, 5, true, 32);
 
+  H3.setEpsilon(0.1/25.0);
+
   sbs::Weights          P_H3_H4(64*2*2, 64);
+
+  P_H3_H4.load("/home/nevarez/Downloads/MNIST/W_H3_H4.bin");
 
   sbs::PoolingLayer     H4(4, 4, 64, 2, false, 64);
 
+  H4.setEpsilon(0.1/4.0);
+
   sbs::Weights          P_H4_H5(64*4*4, 1024);
+
+  P_H4_H5.load("/home/nevarez/Downloads/MNIST/W_H4_H5_Iter0.bin");
 
   sbs::FullyConnectedLayer H5(1024, 4, false, 64);
 
+  H5.setEpsilon(0.1/16.0);
+
   sbs::Weights          P_H5_HY(1024, 10);
 
+  P_H5_HY.load("/home/nevarez/Downloads/MNIST/W_H5_HY_Iter0.bin");
+
   sbs::OutputLayer      HY(10, true, 0);
+
+  HY.setEpsilon(0.1);
 
   // Assign weights to the layers
   H1.giveWeights(&P_IN_H1);
@@ -144,6 +172,16 @@ Result SbSNetworkApp::appProcess()
     spikes_3 = H3.generateSpikes ();
     spikes_4 = H4.generateSpikes ();
     spikes_5 = H5.generateSpikes ();
+//        std::cout << spikes_x.at(0).at(0)+1 << "#";
+//    std::cout << spikes_1.at(0).at(0)+1 << "#";
+//    std::cout << spikes_2.at(0).at(0)+1 << "#";
+//        std::cout << spikes_3.at(0).at(0)+1 << "#";
+
+//    for (uint16_t i = 0; i < 64; i++){
+//        std::cout << T << "," << i << ":" << H3.at(0)->at(0)->at(i) << " ";
+//    }
+//    std::cout << "\n";
+//    std::cout << "\n";
 
     H1.update (spikes_x);
     H2.update (spikes_1);
@@ -153,11 +191,26 @@ Result SbSNetworkApp::appProcess()
     HY.update (spikes_5);
   }
 
+     for (uint16_t i = 0; i < 64; i++){
+        std::cout << H3.at(0)->at(0)->at(i) << " ";
+   }
+
+
+//       for (uint16_t i = 0; i < 32; i++){
+//          std::cout << H2.at(6)->at(6)->at(i) << " ";
+//       }
+
+
   // Output
   //HY[0][0].data() position of the maximum value is the output
 
-  //std::cout << "\n Output value: " << (int)id << std::endl;
+  std::cout << "\n Output value: " << HY.getOutput() << std::endl;
 
+  std::cout << std::endl;
+
+  for (uint8_t i = 0; i < 10; i++){
+      std::cout << HY.at(0)->at(0)->at(i) << " ";
+  }
   return result;
 }
 
