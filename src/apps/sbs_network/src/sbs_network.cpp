@@ -315,7 +315,11 @@ bool InputLayer::load(std::string file_name)
 
   file.read((char*)&label_, sizeof(label_));
   label_--;
+}
 
+uint8_t InputLayer::getLabel()
+{
+return   label_;
 }
 
 ConvolutionLayer::ConvolutionLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer) :

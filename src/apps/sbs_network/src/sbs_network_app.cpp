@@ -83,7 +83,7 @@ Result SbSNetworkApp::appProcess()
   // Instantiate SBS Network objects
   sbs::InputLayer       input_layer(24, 24, 50);
 
-  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_2.bin");
+  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_7.bin");
 
   sbs::Weights          P_IN_H1(2*5*5, 32);
 
@@ -205,6 +205,7 @@ Result SbSNetworkApp::appProcess()
   //HY[0][0].data() position of the maximum value is the output
 
   std::cout << "\n Output value: " << HY.getOutput() << std::endl;
+  std::cout << "\n Label value: " << (int)input_layer.getLabel() << std::endl;
 
   std::cout << std::endl;
 

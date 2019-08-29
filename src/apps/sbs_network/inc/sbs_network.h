@@ -128,7 +128,8 @@ public:
   virtual ~InputLayer();
 
   bool load(std::string file_name);
-
+  uint8_t getLabel();
+private:
   uint8_t label_ = -1;
 };
 
