@@ -76,13 +76,76 @@ Result SbSNetworkApp::appProcess()
 {
   Result result = OK;
 
-  sbs::InputLayer input_layer(28, 28, 2);
-  sbs::InferencePopulation IP(32);
+  // ********** Create SBS Neural Network **********
 
-  sbs::Weights * p_matrix = new sbs::Weights(50, 32);
+  // Instantiate SBS Network objects
+  sbs::InputLayer       input_layer(28, 28, 2);
 
-  float * array = IP.data();
-  uint16_t N = IP.size();
+  sbs::Weights          P_IN_H1(2*5*5, 32);
+
+  sbs::ConvolutionLayer H1(24, 24, 32, 5);
+
+  sbs::Weights          P_H1_H2(32*2*2, 32);
+
+  sbs::PoolingLayer     H2(12, 12, 32, 2);
+
+  sbs::Weights          P_H2_H3(32*5*5, 64);
+
+  sbs::ConvolutionLayer H3(8, 8, 64, 5);
+
+  sbs::Weights          P_H3_H4(64*2*2, 64);
+
+  sbs::PoolingLayer     H4(4, 4, 64, 2);
+
+  sbs::Weights          P_H4_H5(64, 1024);
+
+  sbs::FullyConnectedLayer H5(1, 1, 1024);
+
+  sbs::Weights          P_H5_HY(1024, 10);
+
+  sbs::OutputLayer      HY(10);
+
+  // Assign weights to the layers
+  H1.giveWeights(&P_IN_H1);
+
+  H2.giveWeights(&P_H1_H2);
+
+  H3.giveWeights(&P_H2_H3);
+
+  H4.giveWeights(&P_H3_H4);
+
+  H5.giveWeights(&P_H4_H5);
+
+  HY.giveWeights(&P_H5_HY);
+
+
+  // Update process
+  sbs::Spikes spikes;
+
+  spikes = input_layer.generateSpikes();
+
+  H1.update(spikes);
+  spikes = H1.generateSpikes();
+
+  H2.update(spikes);
+  spikes = H2.generateSpikes();
+
+  H3.update(spikes);
+  spikes = H3.generateSpikes();
+
+  H4.update(spikes);
+  spikes = H4.generateSpikes();
+
+  H5.update(spikes);
+  spikes = H5.generateSpikes();
+
+  HY.update(spikes);
+  spikes = HY.generateSpikes();
+
+  // Output
+  sbs::SpikeID id =  spikes[0][0];
+
+  std::cout << "\n Output value: " << (int)id << std::endl;
 
   return result;
 }

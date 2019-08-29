@@ -289,10 +289,10 @@ void PoolingLayer::update(Spikes spikes)
   BaseLayer::update(spikes);
 }
 
-FullyConnectedLayer::FullyConnectedLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size) :
-        BaseLayer (rows, columns, neurons, kernel_size, 1)
+FullyConnectedLayer::FullyConnectedLayer(uint16_t rows, uint16_t columns, uint16_t neurons) :
+        BaseLayer (rows, columns, neurons, columns, 1)
 {
-
+  ASSERT(rows == columns);
 }
 
 FullyConnectedLayer::~FullyConnectedLayer()
@@ -308,8 +308,8 @@ void FullyConnectedLayer::update(Spikes spikes)
   BaseLayer::update(spikes);
 }
 
-OutputLayer::OutputLayer(uint16_t rows, uint16_t columns, uint16_t neurons) :
-        BaseLayer (rows, columns, neurons)
+OutputLayer::OutputLayer(uint16_t neurons) :
+        BaseLayer (1, 1, neurons, 1, 1)
 {
 
 }
@@ -321,7 +321,10 @@ OutputLayer::~OutputLayer()
 
 void OutputLayer::update(Spikes spikes)
 {
+  ASSERT(spikes.size() == 1);
+  ASSERT(spikes[0].size() == 1);
 
+  BaseLayer::update(spikes);
 }
 
 } // namespace sbs

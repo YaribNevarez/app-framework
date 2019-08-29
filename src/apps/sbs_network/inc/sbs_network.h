@@ -60,7 +60,7 @@ typedef std::vector<WeightRow>              WeightMatrix;
 class Spikes: public SpikeIDMatrix
 {
 public:
-  Spikes(uint16_t rows, uint16_t columns);
+  Spikes(uint16_t rows = 1, uint16_t columns = 1);
   virtual ~Spikes();
 };
 
@@ -133,7 +133,7 @@ public:
 class FullyConnectedLayer: public BaseLayer
 {
 public:
-  FullyConnectedLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size);
+  FullyConnectedLayer(uint16_t rows, uint16_t columns, uint16_t neurons);
   virtual ~FullyConnectedLayer();
   virtual void update(Spikes spikes);
 };
@@ -141,7 +141,7 @@ public:
 class OutputLayer: public BaseLayer
 {
 public:
-  OutputLayer(uint16_t rows, uint16_t columns, uint16_t neurons);
+  OutputLayer(uint16_t neurons);
   virtual ~OutputLayer();
   virtual void update(Spikes spikes);
 };
