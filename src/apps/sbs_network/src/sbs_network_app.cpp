@@ -79,31 +79,31 @@ Result SbSNetworkApp::appProcess()
   // ********** Create SBS Neural Network **********
 
   // Instantiate SBS Network objects
-  sbs::InputLayer       input_layer(28, 28, 2);
+  sbs::InputLayer       input_layer(24, 24, 50);
 
   sbs::Weights          P_IN_H1(2*5*5, 32);
 
-  sbs::ConvolutionLayer H1(24, 24, 32, 5);
+  sbs::ConvolutionLayer H1(24, 24, 32, 1, 1, 0);
 
   sbs::Weights          P_H1_H2(32*2*2, 32);
 
-  sbs::PoolingLayer     H2(12, 12, 32, 2);
+  sbs::PoolingLayer     H2(12, 12, 32, 2, false, 32);
 
   sbs::Weights          P_H2_H3(32*5*5, 64);
 
-  sbs::ConvolutionLayer H3(8, 8, 64, 5);
+  sbs::ConvolutionLayer H3(8, 8, 64, 5, true, 32);
 
   sbs::Weights          P_H3_H4(64*2*2, 64);
 
-  sbs::PoolingLayer     H4(4, 4, 64, 2);
+  sbs::PoolingLayer     H4(4, 4, 64, 2, false, 64);
 
-  sbs::Weights          P_H4_H5(64, 1024);
+  sbs::Weights          P_H4_H5(64*4*4, 1024);
 
-  sbs::FullyConnectedLayer H5(1, 1, 1024);
+  sbs::FullyConnectedLayer H5(1024, 4, false, 64);
 
   sbs::Weights          P_H5_HY(1024, 10);
 
-  sbs::OutputLayer      HY(10);
+  sbs::OutputLayer      HY(10, true, 0);
 
   // Assign weights to the layers
   H1.giveWeights(&P_IN_H1);
@@ -120,32 +120,43 @@ Result SbSNetworkApp::appProcess()
 
 
   // Update process
-  sbs::Spikes spikes;
+  sbs::Spikes spikes_x;
+  sbs::Spikes spikes_1;
+  sbs::Spikes spikes_2;
+  sbs::Spikes spikes_3;
+  sbs::Spikes spikes_4;
+  sbs::Spikes spikes_5;
 
-  spikes = input_layer.generateSpikes();
+  // TODO: Load new Input pattern on the 'input_layer'
 
-  H1.update(spikes);
-  spikes = H1.generateSpikes();
+  H1.initialize();
+  H2.initialize();
+  H3.initialize();
+  H4.initialize();
+  H5.initialize();
+  HY.initialize();
 
-  H2.update(spikes);
-  spikes = H2.generateSpikes();
+  for (uint16_t T = 0; T < 1000; T++)
+  {
+    spikes_x = input_layer.generateSpikes ();
+    spikes_1 = H1.generateSpikes ();
+    spikes_2 = H2.generateSpikes ();
+    spikes_3 = H3.generateSpikes ();
+    spikes_4 = H4.generateSpikes ();
+    spikes_5 = H5.generateSpikes ();
 
-  H3.update(spikes);
-  spikes = H3.generateSpikes();
-
-  H4.update(spikes);
-  spikes = H4.generateSpikes();
-
-  H5.update(spikes);
-  spikes = H5.generateSpikes();
-
-  HY.update(spikes);
-  spikes = HY.generateSpikes();
+    H1.update (spikes_x);
+    H2.update (spikes_1);
+    H3.update (spikes_2);
+    H4.update (spikes_3);
+    H5.update (spikes_4);
+    HY.update (spikes_5);
+  }
 
   // Output
-  sbs::SpikeID id =  spikes[0][0];
+  //HY[0][0].data() position of the maximum value is the output
 
-  std::cout << "\n Output value: " << (int)id << std::endl;
+  //std::cout << "\n Output value: " << (int)id << std::endl;
 
   return result;
 }

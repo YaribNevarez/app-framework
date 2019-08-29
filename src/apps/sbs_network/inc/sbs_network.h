@@ -84,6 +84,8 @@ public:
 
   SpikeID genSpike(void);
 
+  virtual void initialize(void); // Initialize all the H(i) =(1/N)
+
 private:
   std::mt19937 mt_rand;
 };
@@ -94,17 +96,22 @@ private:
 class BaseLayer: public PopulationMatrix
 {
 public:
-  BaseLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size = 0, uint16_t kernel_stride = 0);
+  BaseLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size = 0, uint16_t kernel_stride = 0, bool dir_x = 0, uint16_t N_PreLayer = 0);
   virtual ~BaseLayer();
 
   virtual void giveWeights(Weights * weights);
   virtual Spikes generateSpikes(void);
   virtual void update(Spikes spikes);
 
+  virtual void initialize(void); // Initialize all the H(i) =(1/N)
+
 protected:
   Weights * weights_ = nullptr;
   uint16_t  kernel_size_ = 0;
   uint16_t  kernel_stride_ = 0;
+
+  bool dir_x_ = true;
+  uint16_t N_PreLayer_ = 0;
 };
 
 class InputLayer: public BaseLayer
@@ -117,7 +124,7 @@ public:
 class ConvolutionLayer: public BaseLayer
 {
 public:
-  ConvolutionLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size);
+  ConvolutionLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer);
   virtual ~ConvolutionLayer();
   virtual void update(Spikes spikes);
 };
@@ -125,7 +132,7 @@ public:
 class PoolingLayer: public BaseLayer
 {
 public:
-  PoolingLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size);
+  PoolingLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer);
   virtual ~PoolingLayer();
   virtual void update(Spikes spikes);
 };
@@ -133,7 +140,7 @@ public:
 class FullyConnectedLayer: public BaseLayer
 {
 public:
-  FullyConnectedLayer(uint16_t rows, uint16_t columns, uint16_t neurons);
+  FullyConnectedLayer(uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer);
   virtual ~FullyConnectedLayer();
   virtual void update(Spikes spikes);
 };
@@ -141,7 +148,7 @@ public:
 class OutputLayer: public BaseLayer
 {
 public:
-  OutputLayer(uint16_t neurons);
+  OutputLayer(uint16_t neurons, bool dir_x, uint16_t N_PreLayer);
   virtual ~OutputLayer();
   virtual void update(Spikes spikes);
 };

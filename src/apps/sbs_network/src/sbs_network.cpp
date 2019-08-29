@@ -131,10 +131,17 @@ SpikeID InferencePopulation::genSpike(void)
   return size() - 1;
 }
 
+void InferencePopulation::initialize(void)
+{
+  //TODO:: initialize 1/H all
+}
 
-BaseLayer::BaseLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t  kernel_size, uint16_t  kernel_stride):
+
+BaseLayer::BaseLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t  kernel_size, uint16_t  kernel_stride, bool dir_x, uint16_t N_PreLayer):
     kernel_size_(kernel_size),
-    kernel_stride_(kernel_stride)
+    kernel_stride_(kernel_stride),
+    dir_x_(dir_x),
+    N_PreLayer_(N_PreLayer)
 {
   // Instantiate IPs
   for (uint16_t row = 0; row < rows; row ++)
@@ -189,16 +196,25 @@ void BaseLayer::update(Spikes spikes)
   uint16_t layer_row_size;
   uint16_t layer_column_size;
   SpikeID spikeID = 0;
-  const float EPSILON = 0.1; // TODO: Find a place for Epsilon
+  const float EPSILON = 0.1; // TODO: Find a place for Epsilon may change over the process
 
   layer_row_size = size();
   layer_column_size = at(0)->size();
+  uint16_t Constant_A = kernel_size_;
+  uint16_t Constant_B = 1;
+
+  if (dir_x_)
+    {
+    Constant_A = 1;
+    Constant_B = kernel_size_;
+  }
+
 
   for (uint16_t kernel_row_pos = 0;
-       kernel_row_pos < layer_row_size;
+       kernel_row_pos < layer_row_size - (kernel_size_ - 1);
        kernel_row_pos += kernel_stride_)
     for (uint16_t kernel_column_pos = 0;
-         kernel_column_pos < layer_column_size;
+         kernel_column_pos < layer_column_size - (kernel_size_ - 1);
          kernel_column_pos += kernel_stride_)
 
       for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row ++)
@@ -206,10 +222,15 @@ void BaseLayer::update(Spikes spikes)
         {
           spikeID = spikes[kernel_row_pos + kernel_row][kernel_column_pos + kernel_column];
 
-          WeightRow weightRow = weights_->at(spikeID);
+          WeightRow weightRow = weights_->at(spikeID + (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_);
 
           (*(*this)[kernel_row_pos])[kernel_column_pos]->updateH(weightRow, EPSILON);
         }
+}
+
+void BaseLayer::initialize(void)
+{
+  // TODO: Initialize all the H(i) =(1/N)
 }
 
 BaseLayer::~BaseLayer ()
@@ -249,8 +270,8 @@ InputLayer::~InputLayer ()
 }
 
 
-ConvolutionLayer::ConvolutionLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size) :
-    BaseLayer (rows, columns, neurons, kernel_size, 1)
+ConvolutionLayer::ConvolutionLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer) :
+    BaseLayer (rows, columns, neurons, kernel_size, 1, dir_x, N_PreLayer)
 {
   ASSERT(kernel_size_ == kernel_size);
   ASSERT(kernel_stride_ == 1);
@@ -269,8 +290,8 @@ void ConvolutionLayer::update(Spikes spikes)
   BaseLayer::update(spikes);
 }
 
-PoolingLayer::PoolingLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size) :
-    BaseLayer (rows, columns, neurons, kernel_size, kernel_size)
+PoolingLayer::PoolingLayer (uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer) :
+    BaseLayer (rows, columns, neurons, kernel_size, kernel_size, dir_x, N_PreLayer)
 {
   ASSERT(kernel_size_ == kernel_size);
   ASSERT(kernel_stride_ == kernel_size);
@@ -289,10 +310,9 @@ void PoolingLayer::update(Spikes spikes)
   BaseLayer::update(spikes);
 }
 
-FullyConnectedLayer::FullyConnectedLayer(uint16_t rows, uint16_t columns, uint16_t neurons) :
-        BaseLayer (rows, columns, neurons, columns, 1)
+FullyConnectedLayer::FullyConnectedLayer(uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer) :
+        BaseLayer (1, 1, neurons, kernel_size, 1, dir_x, N_PreLayer)
 {
-  ASSERT(rows == columns);
 }
 
 FullyConnectedLayer::~FullyConnectedLayer()
@@ -304,12 +324,11 @@ void FullyConnectedLayer::update(Spikes spikes)
 {
   ASSERT(spikes.size() == kernel_size_);
   ASSERT(spikes[0].size() == kernel_size_);
-
   BaseLayer::update(spikes);
 }
 
-OutputLayer::OutputLayer(uint16_t neurons) :
-        BaseLayer (1, 1, neurons, 1, 1)
+OutputLayer::OutputLayer(uint16_t neurons, bool dir_x, uint16_t N_PreLayer) :
+        BaseLayer (1, 1, neurons, 1, 1, dir_x, N_PreLayer)
 {
 
 }
