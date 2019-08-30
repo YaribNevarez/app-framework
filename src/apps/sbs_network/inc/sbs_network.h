@@ -24,8 +24,6 @@
 // INCLUDES --------------------------------------------------------------------
 
 #include <vector>
-#include <map>
-#include <chrono>
 #include <unistd.h>
 #include <random>
 
@@ -33,7 +31,6 @@ namespace item {
 namespace snn {
 namespace sbs {
 // FORWARD DECLARATIONS --------------------------------------------------------
-class Neuron;
 class InferencePopulation;
 // TYPEDEFS AND DEFINES --------------------------------------------------------
 typedef float                               Epsilon;
@@ -43,7 +40,6 @@ typedef uint16_t                            SpikeID;
 typedef std::vector<SpikeID>                SpikeIDRow;
 typedef std::vector<SpikeIDRow>             SpikeIDMatrix;
 
-// typedef std::vector<std::unique_ptr<Neuron>> NeuronVector;
 typedef std::vector<StateVariable>          StateVector;
 typedef std::vector<InferencePopulation *>  PopulationRow;
 typedef std::vector<PopulationRow *>        PopulationMatrix;
@@ -76,12 +72,11 @@ public:
 };
 
 // SbS Inference population class
-
 class InferencePopulation: public StateVector
 {
 public:
   InferencePopulation(uint16_t neurons);
-  ~InferencePopulation();
+  virtual ~InferencePopulation();
 
   void updateH(WeightRow P, Epsilon e);
 
@@ -95,7 +90,6 @@ private:
 
 
 // SbS Layer class
-
 class BaseLayer: public PopulationMatrix
 {
 public:
@@ -109,8 +103,6 @@ public:
   virtual void initialize(void); // Initialize all the H(i) =(1/N)
 
   virtual void setEpsilon(float epsilon);
-
-  virtual void printH(void);
 
 protected:
   Weights * weights_ = nullptr;

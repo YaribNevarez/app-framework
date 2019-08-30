@@ -20,15 +20,11 @@
 // INCLUDES --------------------------------------------------------------------
 #include "sbs_network.h"
 
-#include "logger.h"
 #include <assert.h>
 
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
-
-#include <fcntl.h>
-#include <errno.h>
 
 #include <fstream>
 
@@ -36,12 +32,7 @@ namespace item {
 namespace snn {
 namespace sbs {
 
-  static std::mt19937 mt_rand(666);
-
-  uint32_t random()
-  {
-    return mt_rand();
-  }
+static std::mt19937 mt_rand(666);
 
 // FORWARD DECLARATIONS --------------------------------------------------------
 
@@ -86,17 +77,15 @@ bool Weights::load(std::string file_name)
 
   for (uint16_t s = 0; s < size(); s ++)
   file.read((char*)at(s).data(), sizeof(Weight)*at(s).size());
-
 }
 
 // SbS Inference population class
 
 InferencePopulation::InferencePopulation(uint16_t neurons)
 {
-  StateVariable initial_h = 1.0f/(float)neurons;
+  resize(neurons);
 
-  for (uint16_t neuron = 0; neuron < neurons; neuron ++)
-    push_back(initial_h);
+  initialize();
 
   ASSERT(size() == neurons);
 }
@@ -104,12 +93,11 @@ InferencePopulation::InferencePopulation(uint16_t neurons)
 InferencePopulation::~InferencePopulation ()
 {}
 
-/*
 void InferencePopulation::updateH(WeightRow P, Epsilon e)
 {
-  ASSERT (P.size() == size());
-  std::vector<double> temp_h_p(P.size());
-  double sum = 0.0;
+  ASSERT(P.size() == size());
+  StateVector temp_h_p(P.size());
+  StateVariable sum = 0.0;
 
   for (uint16_t i = 0; i < P.size(); i ++)
   {
@@ -120,95 +108,20 @@ void InferencePopulation::updateH(WeightRow P, Epsilon e)
   if (sum < 1e-20) // TODO: DEFINE constant
     return;
 
-  double reverse_e = 1.0 / (1.0 + e);
-  double e_over_sum = e / sum;
+  StateVariable reverse_e = 1.0 / (1.0 + e);
+  StateVariable e_over_sum = e / sum;
 
   for (uint16_t i = 0; i < P.size(); i ++)
   {
    (*this)[i] = reverse_e*(at(i) + temp_h_p[i] * e_over_sum);
   }
 }
-*/
-#define mexErrMsgIdAndTxt(A, B) std::cout << A << B;
-void InferencePopulation::updateH(WeightRow P, Epsilon e)
-{
-  ASSERT (P.size() == size());
-  typedef int mwSize;
-  mwSize N = size();
 
-  float * Data_H = NULL;
-  Data_H = (float *) data();
-  if (Data_H == NULL){
-    mexErrMsgIdAndTxt("MyToolbox:SbS:H","Could not access the data behind the H vector.");
-  }
-
-  float * Data_P = NULL;
-  Data_P = (float *) P.data();
-  if (Data_P == NULL){
-    mexErrMsgIdAndTxt("MyToolbox:SbS:P","Could not access the data behind the P vector.");
-  }
-
-/////////////////////////////////////////////////////////////////////////////////////////////
-
-  float * Data_Epsilon = NULL;
-  Data_Epsilon = (float *) &e;
-  if (Data_Epsilon == NULL){
-    mexErrMsgIdAndTxt("MyToolbox:SbS:Epsilon","Could not access the data behind the Epsilon vector.");
-  }
-  float Epsilon = Data_Epsilon[0];
-  float OneDivOnePlusEps = float(1.0) / (float(1.0) + Epsilon);
-  // ---------------
-  // ---------------
-
-  float * Temp = NULL;
-  Temp = new float[N];
-  if (Temp == NULL){
-    mexErrMsgIdAndTxt("MyToolbox:SbS:Temp","Could not create temp vector.");
-  }
-
-  mwSize Counter = 0;
-  float U = 0;
-  float Norm = 0;
-
-  // If Epsilon is zero
-  if (Epsilon == 0){
-      //plhs[0] = mxCreateSharedDataCopy(prhs[0]);
-      delete [] Temp;
-      return;
-  }
-
-  // -------------------------------------
-  // Calc Temp ---------------------------
-  // -------------------------------------
-  U = 0;
-  for (Counter = 0; Counter < N; Counter ++){
-      Temp[Counter] = Data_H[Counter] * Data_P[Counter];
-      U = U + Temp[Counter];
-  }
-
-  // If U is zero
-  if (U < 1E-30){
-      //plhs[0] = mxCreateSharedDataCopy(prhs[0]);
-      delete [] Temp;
-      return;
-  }
-
-  Norm = float(1.0) / U;
-
-  // Norm by multiplication
-  for (Counter = 0; Counter < N; Counter ++){
-      Temp[Counter] = Data_H[Counter] + (Norm * Temp[Counter] * Epsilon);
-      Data_H[Counter] = Temp[Counter] * OneDivOnePlusEps;
-  }
-
-  //plhs[0] = mxCreateSharedDataCopy(prhs[0]);
-  delete [] Temp;
-}
 
 SpikeID InferencePopulation::genSpike(void)
 {
-  float random_s = float(mt_rand())/float(0xFFFFFFFF);
-  float sum = 0.0;
+  StateVariable random_s = StateVariable(mt_rand())/StateVariable(0xFFFFFFFF);
+  StateVariable sum = 0.0;
 
   ASSERT(random_s <= 1.0);
 
@@ -216,7 +129,7 @@ SpikeID InferencePopulation::genSpike(void)
   {
     sum += at(spikeID);
 
-    //ASSERT(sum < 1.000001);
+    ASSERT(sum < 1.00001);
 
     if (random_s <= sum)
       return spikeID;
@@ -228,7 +141,10 @@ SpikeID InferencePopulation::genSpike(void)
 
 void InferencePopulation::initialize(void)
 {
-  //TODO:: initialize 1/H all
+  StateVariable initial_value_h = 1.0f/StateVariable(size());
+
+    for (uint16_t neuron = 0; neuron < size(); neuron ++)
+      (*this)[neuron] = initial_value_h;
 }
 
 
@@ -301,28 +217,21 @@ void BaseLayer::update (Spikes spikes)
 
   uint16_t X = 0;
   uint16_t Y = 0;
-  for (uint16_t kernel_row_pos = 0;
-      kernel_row_pos < spikes.size () - (kernel_size_ - 1);
-      kernel_row_pos += kernel_stride_)
+  for (uint16_t kernel_row_pos = 0; kernel_row_pos < spikes.size () - (kernel_size_ - 1); kernel_row_pos += kernel_stride_)
     {
-      for (uint16_t kernel_column_pos = 0;
-          kernel_column_pos < spikes.at (0).size () - (kernel_size_ - 1);
-          kernel_column_pos += kernel_stride_)
+      for (uint16_t kernel_column_pos = 0; kernel_column_pos < spikes.at (0).size () - (kernel_size_ - 1); kernel_column_pos += kernel_stride_)
         {
-
           for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row++)
+            {
             for (uint16_t kernel_column = 0; kernel_column < kernel_size_; kernel_column++)
               {
                 spikeID = spikes[kernel_row_pos + kernel_row][kernel_column_pos + kernel_column];
 
                 WeightRow weightRow = weights_->at ( spikeID + (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_);
-//          std::cout << kernel_row_pos << " " << kernel_column_pos << " " << kernel_row << " " << kernel_column << " " << kernel_row_pos + kernel_row << " " << kernel_column_pos + kernel_column << " " << (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_ << "\n";
-//          for (uint16_t xxx = 0; xxx < weightRow.size(); xxx++){
-//              std::cout << weightRow.at(xxx) << " ";
-//          }
-//          std::cout << "\n";
+
                 (*(*this)[Y])[X]->updateH (weightRow, epsilon_);
               }
+            }
           X++;
         }
       Y++;
@@ -334,32 +243,21 @@ void BaseLayer::update (Spikes spikes)
 
 void BaseLayer::initialize(void)
 {
-  // TODO: Initialize all the H(i) =(1/N)
+  size_t y_size = (*this).size();
+  size_t x_size = (*this)[0]->size();
+
+  for (size_t y = 0; y < y_size; y ++)
+    {
+      for (size_t x = 0; x < x_size; x ++)
+        {
+          (*(*this)[y])[x]->initialize();
+        }
+    }
 }
 
 void BaseLayer::setEpsilon(float epsilon)
 {
   epsilon_ = epsilon;
-}
-
-void BaseLayer::printH(void)
-{
-  int y_size = (*this).size();
-  int x_size = (*this)[0]->size();
-  int N_neurons = (*(*this)[0])[0]->size();
-
-  for (int y = 0; y < y_size; y ++)
-    {
-      for (int x = 0; x < x_size; x ++)
-        {
-          for (int n = 0; n < N_neurons; n ++)
-            {
-              float n_value = (*(*(*this)[y])[x])[n];
-
-              std::cout << (n_value);
-            }
-        }
-    }
 }
 
 BaseLayer::~BaseLayer ()
@@ -400,14 +298,21 @@ InputLayer::~InputLayer ()
 
 bool InputLayer::load(std::string file_name)
 {
-  std::ifstream file(file_name, std::ios::binary);
+  std::ifstream file (file_name, std::ios::binary);
+  bool result = file.good ();
 
-  for (uint16_t x = 0; x < at(0)->size(); x ++)
-  for (uint16_t y = 0; y < size(); y ++)
-  file.read((char*)at(y)->at(x)->data(), sizeof(StateVariable)*at(y)->at(x)->size());
+  if (result)
+    {
+      for (uint16_t x = 0; x < at (0)->size (); x++)
+        for (uint16_t y = 0; y < size (); y++)
+          file.read ((char*) at (y)->at (x)->data (),
+                     sizeof(StateVariable) * at (y)->at (x)->size ());
 
-  file.read((char*)&label_, sizeof(label_));
-  label_--;
+      file.read ((char*) &label_, sizeof(label_));
+      label_--;
+    }
+
+  return result;
 }
 
 uint8_t InputLayer::getLabel()
@@ -493,20 +398,21 @@ void OutputLayer::update(Spikes spikes)
 
 uint16_t OutputLayer::getOutput(void)
 {
-  float MaxValue = 0;
-  uint16_t MaxPos = 0;
+  StateVariable max_value = 0;
+  uint16_t max_value_position = 0;
 
-  for (int16_t i = 0; i < (*(*this)[0])[0]->size(); i ++)
+  for (size_t i = 0; i < (*(*this)[0])[0]->size(); i ++)
     {
 
-      if ( (*(*this)[0])[0]->at(i) > MaxValue){
-          MaxPos = i;
-          MaxValue = (*(*this)[0])[0]->at(i);
+      if ( (*(*this)[0])[0]->at(i) > max_value)
+        {
+          max_value_position = i;
+          max_value = (*(*this)[0])[0]->at(i);
 
       }
   }
 
-  return MaxPos;
+  return max_value_position;
 }
 } // namespace sbs
 } // namespace snn

@@ -84,7 +84,7 @@ Result SbSNetworkApp::appProcess()
   // Instantiate SBS Network objects
   sbs::InputLayer       input_layer(24, 24, 50);
 
-  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_15.bin");
+  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_1.bin");
 
   sbs::Weights          P_IN_H1(2*5*5, 32);
 
@@ -185,19 +185,13 @@ Result SbSNetworkApp::appProcess()
     if (T%100 == 0) std::cout << "Spike: " << T << std::endl;
   }
 
-     for (uint16_t i = 0; i < 64; i++){
-        std::cout << H3.at(0)->at(0)->at(i) << " ";
-   }
-
-
-
   std::cout << "\n Output value: " << HY.getOutput() << std::endl;
   std::cout << "\n Label value: " << (int)input_layer.getLabel() << std::endl;
 
   std::cout << std::endl;
 
   for (uint8_t i = 0; i < 10; i++){
-      std::cout << HY.at(0)->at(0)->at(i) << " ";
+      std::cout << HY.at(0)->at(0)->at(i) << std::endl;
   }
   return result;
 }
