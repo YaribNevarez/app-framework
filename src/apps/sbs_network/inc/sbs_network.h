@@ -110,6 +110,8 @@ public:
 
   virtual void setEpsilon(float epsilon);
 
+  virtual void printH(void);
+
 protected:
   Weights * weights_ = nullptr;
   uint16_t  kernel_size_ = 0;
@@ -118,7 +120,7 @@ protected:
   bool dir_x_ = true;
   uint16_t N_PreLayer_ = 0;
 
-  float epsilon_;
+  float epsilon_ = 0.1;
 };
 
 class InputLayer: public BaseLayer

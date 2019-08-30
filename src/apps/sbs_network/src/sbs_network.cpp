@@ -104,10 +104,11 @@ InferencePopulation::InferencePopulation(uint16_t neurons)
 InferencePopulation::~InferencePopulation ()
 {}
 
+/*
 void InferencePopulation::updateH(WeightRow P, Epsilon e)
 {
   ASSERT (P.size() == size());
-  StateVector temp_h_p(P.size());
+  std::vector<double> temp_h_p(P.size());
   double sum = 0.0;
 
   for (uint16_t i = 0; i < P.size(); i ++)
@@ -116,18 +117,92 @@ void InferencePopulation::updateH(WeightRow P, Epsilon e)
     sum += temp_h_p[i];
   }
 
-  if (sum < 1e-30) // TODO: DEFINE constant
+  if (sum < 1e-20) // TODO: DEFINE constant
     return;
 
-  float reverse_e = 1.0 / (1.0 + e);
-  float e_over_sum = e / sum;
+  double reverse_e = 1.0 / (1.0 + e);
+  double e_over_sum = e / sum;
 
   for (uint16_t i = 0; i < P.size(); i ++)
   {
    (*this)[i] = reverse_e*(at(i) + temp_h_p[i] * e_over_sum);
   }
+}
+*/
+#define mexErrMsgIdAndTxt(A, B) std::cout << A << B;
+void InferencePopulation::updateH(WeightRow P, Epsilon e)
+{
+  ASSERT (P.size() == size());
+  typedef int mwSize;
+  mwSize N = size();
 
+  float * Data_H = NULL;
+  Data_H = (float *) data();
+  if (Data_H == NULL){
+    mexErrMsgIdAndTxt("MyToolbox:SbS:H","Could not access the data behind the H vector.");
+  }
 
+  float * Data_P = NULL;
+  Data_P = (float *) P.data();
+  if (Data_P == NULL){
+    mexErrMsgIdAndTxt("MyToolbox:SbS:P","Could not access the data behind the P vector.");
+  }
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+  float * Data_Epsilon = NULL;
+  Data_Epsilon = (float *) &e;
+  if (Data_Epsilon == NULL){
+    mexErrMsgIdAndTxt("MyToolbox:SbS:Epsilon","Could not access the data behind the Epsilon vector.");
+  }
+  float Epsilon = Data_Epsilon[0];
+  float OneDivOnePlusEps = float(1.0) / (float(1.0) + Epsilon);
+  // ---------------
+  // ---------------
+
+  float * Temp = NULL;
+  Temp = new float[N];
+  if (Temp == NULL){
+    mexErrMsgIdAndTxt("MyToolbox:SbS:Temp","Could not create temp vector.");
+  }
+
+  mwSize Counter = 0;
+  float U = 0;
+  float Norm = 0;
+
+  // If Epsilon is zero
+  if (Epsilon == 0){
+      //plhs[0] = mxCreateSharedDataCopy(prhs[0]);
+      delete [] Temp;
+      return;
+  }
+
+  // -------------------------------------
+  // Calc Temp ---------------------------
+  // -------------------------------------
+  U = 0;
+  for (Counter = 0; Counter < N; Counter ++){
+      Temp[Counter] = Data_H[Counter] * Data_P[Counter];
+      U = U + Temp[Counter];
+  }
+
+  // If U is zero
+  if (U < 1E-30){
+      //plhs[0] = mxCreateSharedDataCopy(prhs[0]);
+      delete [] Temp;
+      return;
+  }
+
+  Norm = float(1.0) / U;
+
+  // Norm by multiplication
+  for (Counter = 0; Counter < N; Counter ++){
+      Temp[Counter] = Data_H[Counter] + (Norm * Temp[Counter] * Epsilon);
+      Data_H[Counter] = Temp[Counter] * OneDivOnePlusEps;
+  }
+
+  //plhs[0] = mxCreateSharedDataCopy(prhs[0]);
+  delete [] Temp;
 }
 
 SpikeID InferencePopulation::genSpike(void)
@@ -206,56 +281,54 @@ Spikes BaseLayer::generateSpikes(void)
   return spikes;
 }
 
-void BaseLayer::update(Spikes spikes)
+void BaseLayer::update (Spikes spikes)
 {
   ASSERT(weights_ != nullptr);
 
   if (weights_ == nullptr || kernel_size_ == 0)
     return;
 
-  uint16_t layer_row_size;
-  uint16_t layer_column_size;
   SpikeID spikeID = 0;
 
-  layer_row_size = size();
-  layer_column_size = at(0)->size();
   uint16_t Constant_A = kernel_size_;
   uint16_t Constant_B = 1;
 
   if (dir_x_)
     {
-    Constant_A = 1;
-    Constant_B = kernel_size_;
-  }
+      Constant_A = 1;
+      Constant_B = kernel_size_;
+    }
 
   uint16_t X = 0;
   uint16_t Y = 0;
   for (uint16_t kernel_row_pos = 0;
-       kernel_row_pos < spikes.size() - (kernel_size_ - 1);
-       kernel_row_pos += kernel_stride_) {
-    for (uint16_t kernel_column_pos = 0;
-         kernel_column_pos < spikes.at(0).size() - (kernel_size_ - 1);
-         kernel_column_pos += kernel_stride_) {
+      kernel_row_pos < spikes.size () - (kernel_size_ - 1);
+      kernel_row_pos += kernel_stride_)
+    {
+      for (uint16_t kernel_column_pos = 0;
+          kernel_column_pos < spikes.at (0).size () - (kernel_size_ - 1);
+          kernel_column_pos += kernel_stride_)
+        {
 
-        for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row ++)
-            for (uint16_t kernel_column = 0; kernel_column < kernel_size_; kernel_column ++)
+          for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row++)
+            for (uint16_t kernel_column = 0; kernel_column < kernel_size_; kernel_column++)
               {
-          spikeID = spikes[kernel_row_pos + kernel_row][kernel_column_pos + kernel_column];
+                spikeID = spikes[kernel_row_pos + kernel_row][kernel_column_pos + kernel_column];
 
-          WeightRow weightRow = weights_->at(spikeID + (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_);
+                WeightRow weightRow = weights_->at ( spikeID + (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_);
 //          std::cout << kernel_row_pos << " " << kernel_column_pos << " " << kernel_row << " " << kernel_column << " " << kernel_row_pos + kernel_row << " " << kernel_column_pos + kernel_column << " " << (kernel_row * Constant_A + kernel_column * Constant_B) * N_PreLayer_ << "\n";
 //          for (uint16_t xxx = 0; xxx < weightRow.size(); xxx++){
 //              std::cout << weightRow.at(xxx) << " ";
 //          }
 //          std::cout << "\n";
-          (*(*this)[Y])[X]->updateH(weightRow, epsilon_);
-        }
+                (*(*this)[Y])[X]->updateH (weightRow, epsilon_);
+              }
           X++;
-    }
-    Y ++;
-    X = 0;
+        }
+      Y++;
+      X = 0;
 
-  }
+    }
 
 }
 
@@ -267,6 +340,26 @@ void BaseLayer::initialize(void)
 void BaseLayer::setEpsilon(float epsilon)
 {
   epsilon_ = epsilon;
+}
+
+void BaseLayer::printH(void)
+{
+  int y_size = (*this).size();
+  int x_size = (*this)[0]->size();
+  int N_neurons = (*(*this)[0])[0]->size();
+
+  for (int y = 0; y < y_size; y ++)
+    {
+      for (int x = 0; x < x_size; x ++)
+        {
+          for (int n = 0; n < N_neurons; n ++)
+            {
+              float n_value = (*(*(*this)[y])[x])[n];
+
+              std::cout << (n_value);
+            }
+        }
+    }
 }
 
 BaseLayer::~BaseLayer ()

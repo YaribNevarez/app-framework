@@ -79,17 +79,18 @@ Result SbSNetworkApp::appProcess()
   Result result = OK;
 
   // ********** Create SBS Neural Network **********
+  std::cout << "SBS Test \n";
 
   // Instantiate SBS Network objects
   sbs::InputLayer       input_layer(24, 24, 50);
 
-  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_7.bin");
+  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_15.bin");
 
   sbs::Weights          P_IN_H1(2*5*5, 32);
 
   P_IN_H1.load("/home/nevarez/Downloads/MNIST/W_X_H1_Iter0.bin");
 
-  sbs::ConvolutionLayer H1(24, 24, 32, 1, 1, 0);
+  sbs::ConvolutionLayer H1(24, 24, 32, 1, true, 0);
 
   H1.setEpsilon(0.1);
 
@@ -105,7 +106,7 @@ Result SbSNetworkApp::appProcess()
 
   P_H2_H3.load("/home/nevarez/Downloads/MNIST/W_H2_H3_Iter0.bin");
 
-  sbs::ConvolutionLayer H3(8, 8, 64, 5, true, 32);
+  sbs::ConvolutionLayer H3(8, 8, 64, 5, false, 32);
 
   H3.setEpsilon(0.1/25.0);
 
@@ -121,7 +122,7 @@ Result SbSNetworkApp::appProcess()
 
   P_H4_H5.load("/home/nevarez/Downloads/MNIST/W_H4_H5_Iter0.bin");
 
-  sbs::FullyConnectedLayer H5(1024, 4, false, 64);
+  sbs::FullyConnectedLayer H5(1024, 4, true, 64);
 
   H5.setEpsilon(0.1/16.0);
 
@@ -172,16 +173,7 @@ Result SbSNetworkApp::appProcess()
     spikes_3 = H3.generateSpikes ();
     spikes_4 = H4.generateSpikes ();
     spikes_5 = H5.generateSpikes ();
-//        std::cout << spikes_x.at(0).at(0)+1 << "#";
-//    std::cout << spikes_1.at(0).at(0)+1 << "#";
-//    std::cout << spikes_2.at(0).at(0)+1 << "#";
-//        std::cout << spikes_3.at(0).at(0)+1 << "#";
 
-//    for (uint16_t i = 0; i < 64; i++){
-//        std::cout << T << "," << i << ":" << H3.at(0)->at(0)->at(i) << " ";
-//    }
-//    std::cout << "\n";
-//    std::cout << "\n";
 
     H1.update (spikes_x);
     H2.update (spikes_1);
@@ -189,6 +181,8 @@ Result SbSNetworkApp::appProcess()
     H4.update (spikes_3);
     H5.update (spikes_4);
     HY.update (spikes_5);
+
+    if (T%100 == 0) std::cout << "Spike: " << T << std::endl;
   }
 
      for (uint16_t i = 0; i < 64; i++){
@@ -196,13 +190,6 @@ Result SbSNetworkApp::appProcess()
    }
 
 
-//       for (uint16_t i = 0; i < 32; i++){
-//          std::cout << H2.at(6)->at(6)->at(i) << " ";
-//       }
-
-
-  // Output
-  //HY[0][0].data() position of the maximum value is the output
 
   std::cout << "\n Output value: " << HY.getOutput() << std::endl;
   std::cout << "\n Label value: " << (int)input_layer.getLabel() << std::endl;
