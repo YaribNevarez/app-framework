@@ -16,7 +16,6 @@
  *
  */
 //------------------------------------------------------------------------------
-
 // IFNDEF ----------------------------------------------------------------------
 #ifndef SBS_NETWORK_H_
 #define SBS_NETWORK_H_
@@ -32,26 +31,30 @@ namespace snn {
 namespace sbs {
 // FORWARD DECLARATIONS --------------------------------------------------------
 class InferencePopulation;
+class BaseLayer;
+class Spikes;
+
 // TYPEDEFS AND DEFINES --------------------------------------------------------
-typedef float                               Epsilon;
-typedef float                               StateVariable;
+#define MERSENNE_TWISTER_SEED             666
 
-typedef uint16_t                            SpikeID;
-typedef std::vector<SpikeID>                SpikeIDRow;
-typedef std::vector<SpikeIDRow>             SpikeIDMatrix;
+typedef float                             Epsilon;
+typedef float                             StateVariable;
 
-typedef std::vector<StateVariable>          StateVector;
-typedef std::vector<InferencePopulation *>  PopulationRow;
-typedef std::vector<PopulationRow *>        PopulationMatrix;
+typedef uint16_t                          SpikeID;
+typedef std::vector<SpikeID>              SpikeIDRow;
+typedef std::vector<SpikeIDRow>           SpikeIDMatrix;
+typedef std::vector<Spikes>               SpikesVector;
 
+typedef std::vector<StateVariable>        StateVector;
+typedef std::vector<InferencePopulation>  PopulationRow;
+typedef std::vector<PopulationRow>        PopulationMatrix;
 
-typedef float                               Weight;
-typedef std::vector<Weight>                 WeightRow;
-typedef std::vector<WeightRow>              WeightMatrix;
+typedef float                             Weight;
+typedef std::vector<Weight>               WeightRow;
+typedef std::vector<WeightRow>            WeightMatrix;
 
+typedef std::vector<BaseLayer *>          LayerVector;
 // EUNUMERATIONS ---------------------------------------------------------------
-
-uint32_t random();
 
 // CLASS DECLARATIONS -----------------------------------------------------------
 class Spikes: public SpikeIDMatrix
@@ -61,42 +64,51 @@ public:
   virtual ~Spikes();
 };
 
-// Instantiate P
 class Weights: public WeightMatrix
 {
 public:
-  Weights(uint16_t rows, uint16_t columns);
+  Weights(uint16_t rows, uint16_t columns, std::string file_name = "");
   virtual ~Weights();
 
-  bool load(std::string file_name);
+  virtual bool load(std::string file_name);
 };
 
-// SbS Inference population class
 class InferencePopulation: public StateVector
 {
 public:
   InferencePopulation(uint16_t neurons);
   virtual ~InferencePopulation();
 
-  void updateH(WeightRow P, Epsilon e);
+  virtual void update(WeightRow P, Epsilon e);
 
-  SpikeID genSpike(void);
+  virtual SpikeID genSpike(void);
 
   virtual void initialize(void); // Initialize all the H(i) =(1/N)
 
 private:
-
+  static std::mt19937 mt_rand_;
 };
 
-
-// SbS Layer class
 class BaseLayer: public PopulationMatrix
 {
 public:
-  BaseLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size = 0, uint16_t kernel_stride = 0, bool dir_x = 0, uint16_t N_PreLayer = 0);
+
+  typedef enum
+  {
+    ROW_SHIFT,
+    COLUMN_SHIFT
+  } WeightSectionShift;
+
+  BaseLayer(uint16_t rows,
+            uint16_t columns,
+            uint16_t neurons,
+            uint16_t kernel_size = 0,
+            uint16_t kernel_stride = 0,
+            WeightSectionShift weight_section_shift = ROW_SHIFT,
+            uint16_t neurons_prev_Layer = 0);
   virtual ~BaseLayer();
 
-  virtual void giveWeights(Weights * weights);
+  virtual void setWeights(Weights * weights);
   virtual Spikes generateSpikes(void);
   virtual void update(Spikes spikes);
 
@@ -106,11 +118,11 @@ public:
 
 protected:
   Weights * weights_ = nullptr;
-  uint16_t  kernel_size_ = 0;
-  uint16_t  kernel_stride_ = 0;
+  uint16_t kernel_size_ = 0;
+  uint16_t kernel_stride_ = 0;
 
-  bool dir_x_ = true;
-  uint16_t N_PreLayer_ = 0;
+  WeightSectionShift weight_section_shift_ = ROW_SHIFT;
+  uint16_t neurons_prev_Layer_ = 0;
 
   float epsilon_ = 0.1;
 };
@@ -121,8 +133,8 @@ public:
   InputLayer(uint16_t rows, uint16_t columns, uint16_t neurons);
   virtual ~InputLayer();
 
-  bool load(std::string file_name);
-  uint8_t getLabel();
+  virtual bool load(std::string file_name);
+  virtual uint8_t getLabel();
 private:
   uint8_t label_ = -1;
 };
@@ -130,7 +142,12 @@ private:
 class ConvolutionLayer: public BaseLayer
 {
 public:
-  ConvolutionLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer);
+  ConvolutionLayer(uint16_t rows,
+                   uint16_t columns,
+                   uint16_t neurons,
+                   uint16_t kernel_size,
+                   WeightSectionShift weight_section_shift,
+                   uint16_t neurons_prev_Layer);
   virtual ~ConvolutionLayer();
   virtual void update(Spikes spikes);
 };
@@ -138,7 +155,12 @@ public:
 class PoolingLayer: public BaseLayer
 {
 public:
-  PoolingLayer(uint16_t rows, uint16_t columns, uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer);
+  PoolingLayer(uint16_t rows,
+               uint16_t columns,
+               uint16_t neurons,
+               uint16_t kernel_size,
+               WeightSectionShift weight_section_shift,
+               uint16_t neurons_prev_Layer);
   virtual ~PoolingLayer();
   virtual void update(Spikes spikes);
 };
@@ -146,7 +168,10 @@ public:
 class FullyConnectedLayer: public BaseLayer
 {
 public:
-  FullyConnectedLayer(uint16_t neurons, uint16_t kernel_size, bool dir_x, uint16_t N_PreLayer);
+  FullyConnectedLayer(uint16_t neurons,
+                      uint16_t kernel_size,
+                      WeightSectionShift weight_section_shift,
+                      uint16_t neurons_prev_Layer);
   virtual ~FullyConnectedLayer();
   virtual void update(Spikes spikes);
 };
@@ -154,9 +179,26 @@ public:
 class OutputLayer: public BaseLayer
 {
 public:
-  OutputLayer(uint16_t neurons, bool dir_x, uint16_t N_PreLayer);
+  OutputLayer(uint16_t neurons,
+              WeightSectionShift weight_section_shift,
+              uint16_t neurons_prev_Layer);
   virtual ~OutputLayer();
   virtual void update(Spikes spikes);
+  virtual uint16_t getOutput(void);
+};
+
+class Network: public LayerVector
+{
+public:
+  Network();
+  virtual ~Network();
+
+  virtual bool loadInput(std::string file_name);
+
+  virtual uint8_t getInputLabel(void);
+
+  virtual void updateCycle(uint16_t cycles);
+
   virtual uint16_t getOutput(void);
 };
 

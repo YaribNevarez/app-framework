@@ -70,7 +70,6 @@ Result SbSNetworkApp::initialize(void)
 
   start_threads(); // Start the registered threads
 
-
   return OK;
 }
 
@@ -79,120 +78,73 @@ Result SbSNetworkApp::appProcess()
   Result result = OK;
 
   // ********** Create SBS Neural Network **********
-  std::cout << "SBS Test \n";
+  std::cout << "\n==========  SbS Neural Network  ===============" << std::endl;
+  std::cout << "\n==========  MNIST example  ====================" << std::endl;
+
+  sbs::Network network;
 
   // Instantiate SBS Network objects
-  sbs::InputLayer       input_layer(24, 24, 50);
+  sbs::InputLayer input_layer(24, 24, 50);
+  network.push_back(&input_layer);
 
-  input_layer.load("/home/nevarez/Downloads/MNIST/Pattern/Input_1.bin");
+  sbs::Weights P_IN_H1(2 * 5 * 5, 32, "/home/nevarez/Downloads/MNIST/W_X_H1_Iter0.bin");
 
-  sbs::Weights          P_IN_H1(2*5*5, 32);
-
-  P_IN_H1.load("/home/nevarez/Downloads/MNIST/W_X_H1_Iter0.bin");
-
-  sbs::ConvolutionLayer H1(24, 24, 32, 1, true, 0);
-
+  sbs::ConvolutionLayer H1(24, 24, 32, 1, sbs::BaseLayer::WeightSectionShift::ROW_SHIFT, 50);
   H1.setEpsilon(0.1);
+  H1.setWeights(&P_IN_H1);
+  network.push_back(&H1);
 
-  sbs::Weights          P_H1_H2(32*2*2, 32);
+  sbs::Weights P_H1_H2(32 * 2 * 2, 32, "/home/nevarez/Downloads/MNIST/W_H1_H2.bin");
 
-  P_H1_H2.load("/home/nevarez/Downloads/MNIST/W_H1_H2.bin");
+  sbs::PoolingLayer H2(12, 12, 32, 2, sbs::BaseLayer::WeightSectionShift::COLUMN_SHIFT, 32);
+  H2.setEpsilon(0.1 / 4.0);
+  H2.setWeights(&P_H1_H2);
+  network.push_back(&H2);
 
-  sbs::PoolingLayer     H2(12, 12, 32, 2, false, 32);
+  sbs::Weights P_H2_H3(32 * 5 * 5, 64, "/home/nevarez/Downloads/MNIST/W_H2_H3_Iter0.bin");
 
-  H2.setEpsilon(0.1/4.0);
+  sbs::ConvolutionLayer H3(8, 8, 64, 5, sbs::BaseLayer::WeightSectionShift::COLUMN_SHIFT, 32);
+  H3.setEpsilon(0.1 / 25.0);
+  H3.setWeights(&P_H2_H3);
+  network.push_back(&H3);
 
-  sbs::Weights          P_H2_H3(32*5*5, 64);
+  sbs::Weights P_H3_H4(64 * 2 * 2, 64, "/home/nevarez/Downloads/MNIST/W_H3_H4.bin");
 
-  P_H2_H3.load("/home/nevarez/Downloads/MNIST/W_H2_H3_Iter0.bin");
+  sbs::PoolingLayer H4(4, 4, 64, 2, sbs::BaseLayer::WeightSectionShift::COLUMN_SHIFT, 64);
+  H4.setEpsilon(0.1 / 4.0);
+  H4.setWeights(&P_H3_H4);
+  network.push_back(&H4);
 
-  sbs::ConvolutionLayer H3(8, 8, 64, 5, false, 32);
+  sbs::Weights P_H4_H5(64 * 4 * 4, 1024, "/home/nevarez/Downloads/MNIST/W_H4_H5_Iter0.bin");
 
-  H3.setEpsilon(0.1/25.0);
+  sbs::FullyConnectedLayer H5(1024, 4, sbs::BaseLayer::WeightSectionShift::ROW_SHIFT, 64);
+  H5.setEpsilon(0.1 / 16.0);
+  H5.setWeights(&P_H4_H5);
+  network.push_back(&H5);
 
-  sbs::Weights          P_H3_H4(64*2*2, 64);
+  sbs::Weights P_H5_HY(1024, 10, "/home/nevarez/Downloads/MNIST/W_H5_HY_Iter0.bin");
 
-  P_H3_H4.load("/home/nevarez/Downloads/MNIST/W_H3_H4.bin");
-
-  sbs::PoolingLayer     H4(4, 4, 64, 2, false, 64);
-
-  H4.setEpsilon(0.1/4.0);
-
-  sbs::Weights          P_H4_H5(64*4*4, 1024);
-
-  P_H4_H5.load("/home/nevarez/Downloads/MNIST/W_H4_H5_Iter0.bin");
-
-  sbs::FullyConnectedLayer H5(1024, 4, true, 64);
-
-  H5.setEpsilon(0.1/16.0);
-
-  sbs::Weights          P_H5_HY(1024, 10);
-
-  P_H5_HY.load("/home/nevarez/Downloads/MNIST/W_H5_HY_Iter0.bin");
-
-  sbs::OutputLayer      HY(10, true, 0);
-
+  sbs::OutputLayer HY(10, sbs::BaseLayer::WeightSectionShift::ROW_SHIFT, 0);
   HY.setEpsilon(0.1);
+  HY.setWeights(&P_H5_HY);
+  network.push_back(&HY);
 
-  // Assign weights to the layers
-  H1.giveWeights(&P_IN_H1);
+  // Perform Network load pattern and update cycle
+  network.loadInput("/home/nevarez/Downloads/MNIST/Pattern/Input_1.bin");
+  network.updateCycle(1000);
 
-  H2.giveWeights(&P_H1_H2);
+  std::cout << "\n==========  Results ===========================" << std::endl;
 
-  H3.giveWeights(&P_H2_H3);
+  std::cout << "\n Output value: " << network.getOutput() << std::endl;
+  std::cout << "\n Label value: " << (int) network.getInputLabel() << std::endl;
 
-  H4.giveWeights(&P_H3_H4);
+  std::cout << "\n==========  Output layer values ===============" << std::endl;
 
-  H5.giveWeights(&P_H4_H5);
-
-  HY.giveWeights(&P_H5_HY);
-
-
-  // Update process
-  sbs::Spikes spikes_x;
-  sbs::Spikes spikes_1;
-  sbs::Spikes spikes_2;
-  sbs::Spikes spikes_3;
-  sbs::Spikes spikes_4;
-  sbs::Spikes spikes_5;
-
-  // TODO: Load new Input pattern on the 'input_layer'
-
-  H1.initialize();
-  H2.initialize();
-  H3.initialize();
-  H4.initialize();
-  H5.initialize();
-  HY.initialize();
-
-  for (uint16_t T = 0; T < 1000; T++)
+  for (uint16_t i = 0; i < 10; i++)
   {
-    spikes_x = input_layer.generateSpikes ();
-    spikes_1 = H1.generateSpikes ();
-    spikes_2 = H2.generateSpikes ();
-    spikes_3 = H3.generateSpikes ();
-    spikes_4 = H4.generateSpikes ();
-    spikes_5 = H5.generateSpikes ();
-
-
-    H1.update (spikes_x);
-    H2.update (spikes_1);
-    H3.update (spikes_2);
-    H4.update (spikes_3);
-    H5.update (spikes_4);
-    HY.update (spikes_5);
-
-    if (T%100 == 0) std::cout << "Spike: " << T << std::endl;
+    std::cout << " [ " << i << " ] " << HY[0][0][i] << std::endl;
   }
 
-  std::cout << "\n Output value: " << HY.getOutput() << std::endl;
-  std::cout << "\n Label value: " << (int)input_layer.getLabel() << std::endl;
-
-  std::cout << std::endl;
-
-  for (uint8_t i = 0; i < 10; i++){
-      std::cout << HY.at(0)->at(0)->at(i) << std::endl;
-  }
   return result;
 }
 
