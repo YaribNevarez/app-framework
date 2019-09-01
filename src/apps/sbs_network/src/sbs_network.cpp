@@ -213,13 +213,21 @@ void BaseLayer::update(Spikes spikes)
     column_shift = kernel_size_;
   }
 
-  for (uint16_t kernel_row_pos = 0, layer_row = 0; kernel_row_pos < spikes.size() - (kernel_size_ - 1); kernel_row_pos += kernel_stride_, layer_row ++)
+  for (uint16_t kernel_row_pos = 0, layer_row = 0;
+       kernel_row_pos < spikes.size() - (kernel_size_ - 1);
+       kernel_row_pos += kernel_stride_, layer_row ++)
   {
-    for (uint16_t kernel_column_pos = 0, layer_column = 0; kernel_column_pos < spikes.at(0).size() - (kernel_size_ - 1); kernel_column_pos += kernel_stride_, layer_column ++)
+    for (uint16_t kernel_column_pos = 0, layer_column = 0;
+         kernel_column_pos < spikes.at(0).size() - (kernel_size_ - 1);
+         kernel_column_pos += kernel_stride_, layer_column ++)
     {
-      for (uint16_t kernel_row = 0; kernel_row < kernel_size_; kernel_row++)
+      for (uint16_t kernel_row = 0;
+          kernel_row < kernel_size_;
+          kernel_row++)
       {
-        for (uint16_t kernel_column = 0; kernel_column < kernel_size_; kernel_column++)
+        for (uint16_t kernel_column = 0;
+            kernel_column < kernel_size_;
+            kernel_column++)
         {
           spikeID = spikes[kernel_row_pos + kernel_row][kernel_column_pos + kernel_column];
 
@@ -273,8 +281,7 @@ bool InputLayer::load(std::string file_name)
 
   for (uint16_t x = 0; file.good() && x < at(0).size(); x++)
     for (uint16_t y = 0; file.good() && y < size(); y++)
-      file.read((char*) at(y).at(x).data(),
-          sizeof(StateVariable) * at(y).at(x).size());
+      file.read((char*) at(y).at(x).data(), sizeof(StateVariable) * at(y).at(x).size());
 
   file.read((char*) &label_, sizeof(label_));
   label_ --;

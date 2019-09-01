@@ -130,7 +130,7 @@ Result SbSNetworkApp::appProcess()
   network.push_back(&HY);
 
   // Perform Network load pattern and update cycle
-  network.loadInput("/home/nevarez/Downloads/MNIST/Pattern/Input_1.bin");
+  network.loadInput("/home/nevarez/Downloads/MNIST/Pattern/Input_33.bin");
   network.updateCycle(1000);
 
   std::cout << "\n==========  Results ===========================" << std::endl;
